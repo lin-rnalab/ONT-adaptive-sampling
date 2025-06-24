@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Author: Nicole DeBruyne (Lin Lab)
-# Date: 2024.12.01
+# Date: 2026.06.24
 
 # This script generates gene-based, master-transcript-based, transcript-based, or exon-based FASTA files from a GTF annotation file and a genome FASTA file.
 
