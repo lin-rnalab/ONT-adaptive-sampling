@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Author: Nicole DeBruyne (Lin Lab)
-# Date: 2026.06.24
+# Date: 2024.12.01
 
 # This script generates gene-based, master-transcript-based, transcript-based, or exon-based FASTA files from a GTF annotation file and a genome FASTA file.
 
@@ -29,8 +29,25 @@ fi
 temp_dir=$(mktemp -d)
 echo "Using temporary directory: $temp_dir"
 
+# If feature type is "gene"
+if [[ "$feature_type" == "gene" ]]; then
+    echo "Filtering for gene features."
+
+    # Filter the GTF file for lines with specified gene IDs and feature type "gene"
+    grep -Ff "$gene_id_list" "$annotation_file" | awk '$3 == "gene"' > "$temp_dir/filtered.gtf"
+    echo "Filtered GTF data saved to $temp_dir/filtered.gtf"
+    
+    # Convert filtered GTF data to BED
+    gtf2bed < "$temp_dir/filtered.gtf" > "$temp_dir/temp.bed"
+    bedtools sort -i "$temp_dir/temp.bed" > "$temp_dir/temp.sorted.bed"
+    echo "Sorted BED saved to $temp_dir/temp.sorted.bed"
+
+    # Extract sequences
+    bedtools getfasta -fi "$genome_file" -bed "$temp_dir/temp.sorted.bed" -name -s -fo "$output_fasta"
+    echo "Sequences have been extracted and saved to $output_fasta."
+
 # If feature type is "master"
-if [[ "$feature_type" == "master" ]]; then
+elif [[ "$feature_type" == "master" ]]; then
     echo "Filtering for master transcript features."
 
     # Filter the GTF file for lines with specified gene IDs and feature type "exon"
@@ -96,33 +113,22 @@ elif [[ "$feature_type" == "transcript" ]]; then
     done
     echo "Sequences have been extracted and saved to $output_fasta."
 
-else
+# If feature type is "exon"
+elif [[ "$feature_type" == "exon" ]]; then
+    echo "Filtering for exon features."
 
-    # If feature type is "gene"
-    if [[ "$feature_type" == "gene" ]]; then
-        echo "Filtering for gene features."
-
-        # Filter the GTF file for lines with specified gene IDs and feature type "gene"
-        grep -Ff "$gene_id_list" "$annotation_file" | awk '$3 == "gene"' > "$temp_dir/filtered.gtf"
-        echo "Filtered GTF data saved to $temp_dir/filtered.gtf"
-
-    # If feature type is "exon"
-    elif [[ "$feature_type" == "exon" ]]; then
-        echo "Filtering for exon features."
-
-        # Filter the GTF file for lines with specified gene IDs and feature type "exon"
-        grep -Ff "$gene_id_list" "$annotation_file" | awk '$3 == "exon"' > "$temp_dir/filtered.gtf"
-        echo "Filtered GTF data saved to $temp_dir/filtered.gtf"
-
-    fi
+    # Filter the GTF file for lines with specified gene IDs and feature type "exon"
+    grep -Ff "$gene_id_list" "$annotation_file" | awk '$3 == "exon"' > "$temp_dir/filtered.gtf"
+    echo "Filtered GTF data saved to $temp_dir/filtered.gtf"
 
     # Convert filtered GTF data to BED
     gtf2bed < "$temp_dir/filtered.gtf" > "$temp_dir/temp.bed"
     bedtools sort -i "$temp_dir/temp.bed" > "$temp_dir/temp.sorted.bed"
     echo "Sorted BED saved to $temp_dir/temp.sorted.bed"
 
-    # Extract sequences
-    bedtools getfasta -fi "$genome_file" -bed "$temp_dir/temp.sorted.bed" -name -s -fo "$output_fasta"
+    # Extract sequences and remove duplicates
+    bedtools getfasta -fi "$genome_file" -bed "$temp_dir/temp.sorted.bed" -name -s -fo "$temp_dir/temp.sorted.fasta"
+    seqkit rmdup -s "$temp_dir/temp.sorted.fasta" -o "$output_fasta"
     echo "Sequences have been extracted and saved to $output_fasta."
 
 fi
